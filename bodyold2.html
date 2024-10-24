@@ -57,7 +57,6 @@
                         <div class="btn-group mb-3 ms-2" role="group">
                             <button class="btn btn-success" onclick="saveState()">Save</button>
                             <button class="btn btn-danger" onclick="resetState()">Reset</button>
-                            <button class="btn btn-warning" id="deleteBtn" disabled onclick="deleteOverlay()">Delete</button>
                         </div>
 
                         <div id="modeIndicator" class="mb-3 text-muted small">Current Mode: None</div>
@@ -302,14 +301,12 @@
             }
             selectedOverlay = overlay;
             selectedOverlay.classList.add('selected');
-            document.getElementById('deleteBtn').disabled = false; // Enable delete button
         }
 
         function deselectOverlay() {
             if (selectedOverlay) {
                 selectedOverlay.classList.remove('selected');
                 selectedOverlay = null;
-                document.getElementById('deleteBtn').disabled = true; // Disable delete button
             }
         }
 
@@ -319,18 +316,6 @@
                 deselectOverlay();
             }
         });
-
-        function deleteOverlay() {
-            if (!selectedOverlay) return;
-            
-            // Remove from DOM
-            selectedOverlay.remove();
-
-            // Remove from overlays array
-            overlays = overlays.filter(o => `overlay-${o.id}` !== selectedOverlay.id);
-
-            deselectOverlay(); // Deselect after deletion
-        }
 
         function saveState() {
             const state = {
