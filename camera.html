@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 20px 0;
+        }
+
+        #camera-preview {
+            width: 100%;
+            border-radius: 8px;
+            background-color: #f0f0f0;
+        }
+
+        .button-container {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .thumbnails {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .thumbnail {
+            width: 100px;
+            height: 100px;
+            border-radius: 4px;
+            cursor: pointer;
+            object-fit: cover;
+            border: 2px solid #ddd;
+            transition: transform 0.2s;
+        }
+
+        .thumbnail:hover {
+            transform: scale(1.05);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 8px;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            border: none;
+            color: black;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .error {
+            background-color: #ffe6e6;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>Camera Capture App</h1>
+    
+    <div class="status error" id="error-message"></div>
+
+    <div class="camera-container">
+        <video id="camera-preview" autoplay playsinline></video>
+    </div>
+
+    <div class="button-container">
+        <button id="start-camera">Start Camera</button>
+        <button id="take-photo" disabled>Take Photo</button>
+        <button id="switch-camera" disabled>Switch Camera</button>
+    </div>
+
+    <h2>Captured Photos</h2>
+    <div class="thumbnails" id="thumbnails"></div>
+
+    <div class="modal" id="modal">
+        <button class="close-button" onclick="closeModal()">×</button>
+        <div class="modal-content">
+            <img class="modal-image" id="modal-image" src="" alt="Full size photo">
+        </div>
+    </div>
+
+    <script>
+        const cameraPreview = document.getElementById('camera-preview');
+        const startButton = document.getElementById('start-camera');
+        const takePhotoButton = document.getElementById('take-photo');
+        const switchCameraButton = document.getElementById('switch-camera');
+        const thumbnailsContainer = document.getElementById('thumbnails');
+        const modal = document.getElementById('modal');
+        const modalImage = document.getElementById('modal-image');
+        const errorMessage = document.getElementById('error-message');
+
+        let stream = null;
+        let facingMode = 'environment'; // Start with back camera
+        let availableCameras = [];
+
+        async function checkCameraSupport() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                switchCameraButton.disabled = availableCameras.length < 2;
+            } catch (error) {
+                showError('Error checking camera support: ' + error.message);
+            }
+        }
+
+        async function startCamera() {
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                });
+
+                cameraPreview.srcObject = stream;
+                takePhotoButton.disabled = false;
+                startButton.textContent = 'Restart Camera';
+                errorMessage.style.display = 'none';
+            } catch (error) {
+                showError('Error accessing camera: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        function takePhoto() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // Set canvas size to match video dimensions
+            canvas.width = cameraPreview.videoWidth;
+            canvas.height = cameraPreview.videoHeight;
+            
+            // Draw the video frame to canvas
+            context.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+            
+            // Create thumbnail
+            const thumbnail = document.createElement('img');
+            thumbnail.className = 'thumbnail';
+            thumbnail.src = canvas.toDataURL('image/jpeg');
+            thumbnail.onclick = () => showFullImage(thumbnail.src);
+            
+            thumbnailsContainer.appendChild(thumbnail);
+        }
+
+        function showFullImage(src) {
+            modalImage.src = src;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        function switchCamera() {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            startCamera();
+        }
+
+        // Event Listeners
+        startButton.addEventListener('click', startCamera);
+        takePhotoButton.addEventListener('click', takePhoto);
+        switchCameraButton.addEventListener('click', switchCamera);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Initialize
+        checkCameraSupport();
+
+        // Handle keyboard events
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        /* Previous styles remain the same */
+        .container {
+            position: relative;
+            display: inline-block;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .burn-btn { background-color: #007bff; color: white; }
+        .cut-btn { background-color: #dc3545; color: white; }
+        .edit-btn { background-color: #28a745; color: white; }
+        .clear-btn { background-color: #6c757d; color: white; }
+        .save-btn { background-color: #17a2b8; color: white; }
+        .reset-btn { background-color: #ffc107; color: black; }
+
+        .overlay { pointer-events: all; }
+        .body-base { pointer-events: none; }
+        .selected-shape { stroke-dasharray: 5,5; }
+        .resize-handle {
+            cursor: nw-resize;
+            fill: white;
+            stroke: black;
+        }
+
+        .color-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 10px;
+            border: 2px solid #333;
+        }
+
+        .status-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #28a745;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button class="burn-btn" onclick="setMode('draw', 'burn')">Burn (Blue)</button>
+        <button class="cut-btn" onclick="setMode('draw', 'cut')">Cut (Red)</button>
+        <button class="edit-btn" onclick="setMode('edit')">Edit Mode</button>
+        <button class="save-btn" onclick="saveState()">Save State</button>
+        <button class="clear-btn" onclick="clearOverlays()">Clear All</button>
+        <button class="reset-btn" onclick="resetState()">Reset to Default</button>
+        <div>Mode: <span id="current-mode">None</span></div>
+        <div class="color-indicator" id="color-indicator"></div>
+    </div>
+    
+    <div id="status-message" class="status-message"></div>
+    
+    <div class="container">
+        <svg width="300" height="500" viewBox="0 0 300 500">
+            <!-- Base body outline -->
+            <g class="body-base" fill="#f0f0f0" stroke="black" stroke-width="2">
+                <!-- Previous body parts remain the same -->
+                <circle cx="150" cy="60" r="40" />
+                <rect x="135" y="100" width="30" height="20" />
+                <path d="M110,120 L190,120 L200,300 L100,300 Z" />
+                <path d="M190,120 L240,200 L230,210 L180,140 Z" />
+                <path d="M110,120 L60,200 L70,210 L120,140 Z" />
+                <path d="M100,300 L80,450 L120,450 L140,300 Z" />
+                <path d="M200,300 L220,450 L180,450 L160,300 Z" />
+                
+                <g fill="black" font-size="12" text-anchor="middle">
+                    <text x="150" y="65">Head</text>
+                    <text x="150" y="200">Torso</text>
+                    <text x="220" y="180">Arm</text>
+                    <text x="80" y="180">Arm</text>
+                    <text x="100" y="400">Leg</text>
+                    <text x="200" y="400">Leg</text>
+                </g>
+            </g>
+            
+            <g class="overlay"></g>
+        </svg>
+    </div>
+
+    <script>
+        // Previous variables and functions remain the same
+        const svg = document.querySelector('svg');
+        const overlay = document.querySelector('.overlay');
+        const currentModeDisplay = document.getElementById('current-mode');
+        const colorIndicator = document.getElementById('color-indicator');
+        const statusMessage = document.getElementById('status-message');
+        
+        let currentMode = null;
+        let currentType = null;
+        let isDrawing = false;
+        let isDragging = false;
+        let isResizing = false;
+        let currentShape = null;
+        let selectedShape = null;
+        let startX, startY;
+        let offsetX, offsetY;
+
+        const STORAGE_KEY = 'bodyDiagramState';
+        const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+        const types = {
+            burn: {
+                color: '#007bff',
+                label: 'Burn',
+                opacity: 0.2
+            },
+            cut: {
+                color: '#dc3545',
+                label: 'Cut',
+                opacity: 0.2
+            }
+        };
+
+        // Show status message function
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.style.backgroundColor = isError ? '#dc3545' : '#28a745';
+            statusMessage.style.opacity = '1';
+            setTimeout(() => {
+                statusMessage.style.opacity = '0';
+            }, 2000);
+        }
+
+        // Save state to local storage
+        function saveState() {
+            try {
+                const shapes = [];
+                overlay.querySelectorAll('g[data-type]').forEach(group => {
+                    const ellipse = group.querySelector('ellipse');
+                    shapes.push({
+                        type: group.getAttribute('data-type'),
+                        cx: ellipse.getAttribute('cx'),
+                        cy: ellipse.getAttribute('cy'),
+                        rx: ellipse.getAttribute('rx'),
+                        ry: ellipse.getAttribute('ry')
+                    });
+                });
+                
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(shapes));
+                showStatus('State saved successfully');
+            } catch (error) {
+                showStatus('Error saving state', true);
+                console.error('Error saving state:', error);
+            }
+        }
+
+        // Load state from local storage
+        function loadState() {
+            try {
+                const savedState = localStorage.getItem(STORAGE_KEY);
+                if (savedState) {
+                    const shapes = JSON.parse(savedState);
+                    clearOverlays();
+                    shapes.forEach(shape => {
+                        const group = createShapeGroup(shape.type);
+                        overlay.appendChild(group);
+                        updateShape(group, shape.cx, shape.cy, shape.rx, shape.ry);
+                    });
+                    showStatus('State loaded successfully');
+                }
+            } catch (error) {
+                showStatus('Error loading state', true);
+                console.error('Error loading state:', error);
+            }
+        }
+
+        // Reset state
+        function resetState() {
+            if (confirm('Are you sure you want to reset all markings? This cannot be undone.')) {
+                localStorage.removeItem(STORAGE_KEY);
+                clearOverlays();
+                showStatus('State reset successfully');
+            }
+        }
+
+        // Auto-save functionality
+        setInterval(saveState, AUTO_SAVE_INTERVAL);
+
+        // Modified clear overlays function
+        function clearOverlays() {
+            while (overlay.firstChild) {
+                overlay.removeChild(overlay.firstChild);
+            }
+            deselectShape();
+        }
+
+        // Previous functions remain the same but with state saving
+        function updateShape(group, cx, cy, rx, ry) {
+            const ellipse = group.querySelector('ellipse');
+            const text = group.querySelector('text');
+            
+            ellipse.setAttribute('cx', cx);
+            ellipse.setAttribute('cy', cy);
+            ellipse.setAttribute('rx', rx);
+            ellipse.setAttribute('ry', ry);
+            
+            text.setAttribute('x', cx);
+            text.setAttribute('y', cy - ry - 5);
+            text.setAttribute('text-anchor', 'middle');
+            
+            updateResizeHandles(group);
+        }
+
+        // Previous event listeners and functions remain the same
+        // ... (keep all the previous mousedown, mousemove, mouseup handlers)
+
+        // Load state when the page loads
+        document.addEventListener('DOMContentLoaded', loadState);
+
+        // Save state before unload
+        window.addEventListener('beforeunload', saveState);
+
+        // Initialize with no mode selected
+        currentModeDisplay.textContent = 'None';
+        colorIndicator.style.backgroundColor = 'transparent';
+
+        // Add keyboard delete listener for selected shapes
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' && selectedShape) {
+                selectedShape.remove();
+                selectedShape = null;
+                saveState(); // Save state after deletion
+            }
+        });
+
+        // ... (keep all other previous functions)
+
+    </script>
+</body>
+</html>
