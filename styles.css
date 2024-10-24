@@ -1,0 +1,130 @@
+/* Body styling */
+body {
+    background-color: #f8f9fa;
+}
+
+/* Container for the SVG */
+.svg-container {
+    position: relative;
+    cursor: crosshair;
+    background: white;
+}
+
+/* General styles for overlays */
+.overlay-ellipse {
+    fill-opacity: 0.3;
+    stroke-width: 2px;
+}
+
+/* Styling for burn overlays */
+.burn-overlay {
+    fill: blue;
+    stroke: blue;
+}
+
+/* Styling for cut overlays */
+.cut-overlay {
+    fill: red;
+    stroke: red;
+}
+
+/* Styling for the buttons when active */
+.active-button {
+    transform: scale(0.95);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Styling for selected overlays */
+.selected {
+    stroke: yellow;
+    stroke-width: 3px;
+}
+
+/* Styling for buttons in the control panel */
+button {
+    margin-right: 5px;
+}
+
+/* Card header and control section */
+.card-header {
+    background-color: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Control button group */
+.btn-group {
+    margin-bottom: 15px;
+}
+
+/* Additional padding and text alignment */
+.mt-3 {
+    margin-top: 1rem !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+small {
+    font-size: 80%;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.border {
+    border: 1px solid #dee2e6 !important;
+}
+
+/* Styling the SVG and the body diagram */
+svg {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Button styles for success, danger, and warning */
+.btn-success {
+    color: #fff;
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-warning {
+    color: #000;
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+/* Custom styling for small text */
+.small {
+    font-size: 80%;
+    color: #6c757d;
+}
+
+/* Toast notification styles */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 200px;
+    background-color: white;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    z-index: 1055;
+}
+
+.toast-header {
+    background-color: #198754;
+    color: white;
+    font-weight: bold;
+}
+
+.toast-body {
+    color: black;
+}
