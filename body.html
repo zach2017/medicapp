@@ -157,8 +157,14 @@
 
         function getSVGCoordinates(event) {
             const pt = svg.createSVGPoint();
-            pt.x = event.clientX;
-            pt.y = event.clientY;
+            // Use touch coordinates if available
+            if (event.touches && event.touches.length > 0) {
+                pt.x = event.touches[0].clientX;
+                pt.y = event.touches[0].clientY;
+            } else {
+                pt.x = event.clientX;
+                pt.y = event.clientY;
+            }
             return pt.matrixTransform(svg.getScreenCTM().inverse());
         }
 
@@ -172,7 +178,11 @@
             document.getElementById('cutBtn').classList.toggle('active-button', mode === 'cut');
         }
 
-        svg.addEventListener('mousedown', (e) => {
+        // Handle mouse down or touch start
+        svg.addEventListener('mousedown', handleDrawStart);
+        svg.addEventListener('touchstart', handleDrawStart);
+
+        function handleDrawStart(e) {
             if (currentMode === 'none') return;
             
             const svgP = getSVGCoordinates(e);
@@ -188,9 +198,13 @@
             };
             
             renderCurrentOverlay();
-        });
+        }
 
-        svg.addEventListener('mousemove', (e) => {
+        // Handle mouse move or touch move
+        svg.addEventListener('mousemove', handleDrawMove);
+        svg.addEventListener('touchmove', handleDrawMove);
+
+        function handleDrawMove(e) {
             if (!isDrawing || !currentOverlay) return;
             
             const svgP = getSVGCoordinates(e);
@@ -201,10 +215,12 @@
             currentOverlay.radiusY = Math.abs(dy);
             
             renderCurrentOverlay();
-        });
+        }
 
+        // Handle mouse up or touch end
         svg.addEventListener('mouseup', finishDrawing);
         svg.addEventListener('mouseleave', finishDrawing);
+        svg.addEventListener('touchend', finishDrawing);
 
         function finishDrawing() {
             if (!isDrawing || !currentOverlay) return;
@@ -259,6 +275,22 @@
                     isDragging = true;
                 }
             });
+
+            // Handle touch start for moving or resizing
+            overlay.addEventListener('touchstart', (e) => {
+                selectOverlay(overlay);
+                const svgP = getSVGCoordinates(e);
+                startX = svgP.x;
+                startY = svgP.y;
+
+                if (Math.abs(svgP.x - overlay.cx.baseVal.value) < 10 && Math.abs(svgP.y - overlay.cy.baseVal.value) < 10) {
+                    isResizing = true;
+                    initialRadiusX = overlay.rx.baseVal.value;
+                    initialRadiusY = overlay.ry.baseVal.value;
+                } else {
+                    isDragging = true;
+                }
+            });
         }
 
         function moveOrResizeOverlay(e) {
@@ -282,11 +314,21 @@
             }
         }
 
+        // Handle both mouse and touch move for moving or resizing overlays
         svg.addEventListener('mousemove', (e) => {
             moveOrResizeOverlay(e);
         });
 
+        svg.addEventListener('touchmove', (e) => {
+            moveOrResizeOverlay(e);
+        });
+
         svg.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+        });
+
+        svg.addEventListener('touchend', () => {
             isDragging = false;
             isResizing = false;
         });
@@ -315,6 +357,12 @@
 
         // Deselect overlay on click outside of any overlay
         svg.addEventListener('mousedown', (e) => {
+            if (e.target.tagName !== 'ellipse') {
+                deselectOverlay();
+            }
+        });
+
+        svg.addEventListener('touchstart', (e) => {
             if (e.target.tagName !== 'ellipse') {
                 deselectOverlay();
             }
